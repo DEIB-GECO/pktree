@@ -35,6 +35,8 @@ from ._partitioner cimport (
 from ._utils cimport RAND_R_MAX, rand_int, rand_uniform
 
 import numpy as np
+import random
+import threading
 
 from ..utils._random cimport our_rand_r
 
@@ -64,91 +66,25 @@ cdef inline void _init_split(SplitRecord* self, intp_t start_pos) noexcept nogil
 
 #--------------------------------------------------------------NP-VERSION------------------------------------------------
 
-def weighted_rand_int_numpy(low, high, features, gis_score, k, random_state):
-    indices = np.arange(low, high)
-    new_idxs = features[low:high]
-    #np.random.seed(random_state)
-    #k = 3 # hyperparameter to give relevance to the gis score weights.
+cdef int weighted_rand_int_numpy(int low, int high, intp_t[::1] features, float64_t[::1] gis_score, float64_t k, intp_t random_state) with gil:
     
-    adjusted_gis_score = gis_score[new_idxs]
+    #ptr_as_int = random_state[0]
+    indices = np.arange(low, high)
+    new_idxs = np.array(features)[low:high]
+    
+    adjusted_gis_score = np.array(gis_score)[new_idxs]
     adjusted_gis_score = adjusted_gis_score**k
     #print(adjusted_gis_score)
     total_weight = np.sum(adjusted_gis_score)
-    if total_weight == 0:
+    if total_weight <= 1e-10:
+        np.random.seed(random_state) 
         return np.random.choice(indices)
 
-    probabilities = adjusted_gis_score / total_weight
-    return np.random.choice(indices, p=probabilities)
+    else:
+        np.random.seed(random_state)
+        probabilities = adjusted_gis_score / total_weight
+        return np.random.choice(indices, p=probabilities)
 
-#-------------------------------------------------------------OLD-VERSION------------------------------------------------
-
-# cdef int weighted_rand_int(int low, int f_i, int n_const, float64_t tot_weight, float64_t[::1] gis_score, uint32_t* random_state) nogil:
-    
-#     cdef int i
-#     cdef float64_t r
-
-#     r = our_rand_r(random_state) / (RAND_MAX + 1.0)
-
-#     for i in range(low, f_i - n_const):
-#         j = i + n_const
-#         r = r - gis_score[j]/tot_weight
-#         if r <= 0.0:
-#             return i
-
-#     return f_i - n_const - 1
-
-#-----------------------------------------------------------------------------------------------------------------------
-
-cdef int weighted_rand_int(int low, int f_i, int n_const, float64_t[::1] gis_score, uint32_t* random_state) nogil:
-    
-    cdef int i
-    cdef float64_t r
-    cdef float64_t tot_weight = 0.0
-    
-    for i in range(low, f_i - n_const):
-        tot_weight += gis_score[i]
-        
-    # with gil:
-    #     print("tot_weight_f: ", tot_weight)
-
-    if tot_weight == 0.0:
-        return low + our_rand_r(random_state) % ((f_i-n_const) - low)
-
-    r = our_rand_r(random_state) / (RAND_MAX + 1.0)
-
-    for i in range(low, f_i - n_const):
-        j = i + n_const
-        r = r - gis_score[j]/tot_weight
-        if r <= 0.0:
-            return i
-
-    #return f_i - n_const - 1
-
-#-----------------------------------------------------------------------------------------------------------------------
-cdef int weighted_random_sampling(intp_t low, intp_t high, intp_t[::1] features, float64_t[::1] gis_score, float64_t k, uint32_t* random_state) nogil:
-    
-    cdef intp_t i
-    #cdef intp_t size = high-low
-    cdef float64_t tot_weight = 0.0
-  
-
-    for i in range(low, high):
-        #idxs[i] = i
-        idx = features[i]
-        tot_weight += gis_score[idx]**k
-
-    cdef float64_t rand_val = rand_uniform(0,tot_weight, random_state)
-    #with gil:
-        #print('w:', tot_weight)
-        #print('rand:', rand_val)
-    cdef double cumulative_weight = 0.0
-
-    for i in range(low, high):
-        idx = features[i]
-        cumulative_weight += gis_score[idx]**k
-        if rand_val <= cumulative_weight: 
-            return i
- 
 
 cdef class Splitter:
     """Abstract splitter class.
@@ -411,9 +347,8 @@ cdef inline int node_split_best(
     cdef intp_t min_samples_leaf = splitter.min_samples_leaf
     cdef float64_t min_weight_leaf = splitter.min_weight_leaf
     cdef uint32_t* random_state = &splitter.rand_r_state
-    with gil:
-        print(splitter.rand_r_state)
-   
+    cdef intp_t r_state = random_state[0]
+
     cdef SplitRecord best_split, current_split
     cdef float64_t current_proxy_improvement = -INFINITY
     cdef float64_t best_proxy_improvement = -INFINITY
@@ -442,6 +377,7 @@ cdef inline int node_split_best(
 
     cdef float64_t[::1] inverted_gis
     cdef float64_t[::1] gis_score = splitter.gis_score
+
     
     
     # cdef intp_t[::1] selected_features = selected_features # vabè forse lo sto passando giusto, da testare. magari a proxy si può passare direttamente la lista? vediamo
@@ -454,10 +390,7 @@ cdef inline int node_split_best(
         for i in range (0, f_i):
             # inverted_gis[i] = ((1-gis_score[i])/gis_score[i])
             inverted_gis[i] = 1/gis_score[i]
-            # tot_weight += inverted_gis[i]
-            # with gil:
-            #     print(tot_weight)
-
+       
 
     # Sample up to max_features without replacement using a
     # Fisher-Yates-based algorithm (using the local variables `f_i` and
@@ -499,17 +432,21 @@ cdef inline int node_split_best(
         #   and aren't constant.
 
         # Draw a feature at random
+        
+        #if splitter.gis_score is not None:
         if splitter.gis_score is not None:
-            #f_j = weighted_random_sampling(n_drawn_constants, f_i - n_found_constants, features, inverted_gis, splitter.k, random_state)
-            #with gil:
-                #print(f_j)
-            #f_j = weighted_rand_int(n_drawn_constants, f_i, n_found_constants, inverted_gis, random_state) #ricordati di aggiungere di nuovo tot_weight se vuoi tornare indietro
-            with gil:
-                f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, np.array(features), np.array(inverted_gis), splitter.k, splitter.rand_r_state) # f_i is initially set to the n_features (end of the features array)
-                #print(f_j)
-        else:
+               
+            
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
                         random_state)
+            
+            f_j=weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_gis, splitter.k, random_state[0])
+
+        else:
+           
+            f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
+                        random_state)
+
 
         if f_j < n_known_constants:
             # f_j in the interval [n_drawn_constants, n_known_constants[ - If the selected feature is within the known constants, it is swapped to the front, and the count of drawn constants is updated.
@@ -736,8 +673,7 @@ cdef inline int node_split_random(
     cdef float64_t min_weight_leaf = splitter.min_weight_leaf
     cdef uint32_t* random_state = &splitter.rand_r_state
     srand(random_state[0])
-    with gil:
-        print(splitter.rand_r_state)
+    
         
     cdef SplitRecord best_split, current_split
     cdef float64_t current_proxy_improvement = - INFINITY
@@ -760,22 +696,24 @@ cdef inline int node_split_random(
     cdef float32_t min_feature_value
     cdef float32_t max_feature_value
 
+    
     _init_split(&best_split, end)
 
     partitioner.init_node_split(start, end)
 
     cdef float64_t[::1] inverted_gis
     cdef float64_t[::1] gis_score = splitter.gis_score
-    cdef float64_t tot_weight = 0.0
+    with gil:
+        print(splitter.gis_score)
 
     if splitter.gis_score is not None:
 
         with gil:
             inverted_gis = np.empty_like(gis_score)
-    
+        
         for i in range (0, f_i):
             inverted_gis[i] = ((1-gis_score[i])/gis_score[i])
-            tot_weight += inverted_gis[i]
+            #tot_weight += inverted_gis[i]
 
     # Sample up to max_features without replacement using a
     # Fisher-Yates-based algorithm (using the local variables `f_i` and
@@ -806,17 +744,14 @@ cdef inline int node_split_random(
 
         # Draw a feature at random
         if splitter.gis_score is not None:
-            #cdef float64_t tot_weight = 0.0
-            #with gil:
-                #tot_weight = inverted_gis
-            #f_j = weighted_random_sampling(n_drawn_constants, f_i - n_found_constants, features, inverted_gis, splitter.k, random_state)
-            #with gil:
-                #print(f_j)
-            #f_j = weighted_rand_int(n_drawn_constants, f_i, n_found_constants, inverted_gis, random_state) #ricordati di aggiungere di nuovo tot_weight se vuoi tornare indietro
-            with gil:
-                f_j = weighted_rand_int_numpy(n_drawn_constants, f_i, n_found_constants, inverted_gis, splitter.k, splitter.rand_r_state)
-                #print(f_j)
+               
+            f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
+                        random_state)
+            
+            f_j=weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_gis, splitter.k, random_state[0])
+
         else:
+           
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
                         random_state)
 
