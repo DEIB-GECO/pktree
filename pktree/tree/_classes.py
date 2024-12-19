@@ -15,7 +15,16 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.sparse import issparse
 
-from ..base import (
+# from ..base import (
+#     BaseEstimator,
+#     ClassifierMixin,
+#     MultiOutputMixin,
+#     RegressorMixin,
+#     _fit_context,
+#     clone,
+#     is_classifier,
+# )
+from sklearn.base import (
     BaseEstimator,
     ClassifierMixin,
     MultiOutputMixin,
@@ -24,10 +33,19 @@ from ..base import (
     clone,
     is_classifier,
 )
-from ..utils import Bunch, check_random_state, compute_sample_weight
-from ..utils._param_validation import Hidden, Interval, RealNotInt, StrOptions
-from ..utils.multiclass import check_classification_targets
-from ..utils.validation import (
+# from ..utils import Bunch, check_random_state, compute_sample_weight
+# from ..utils._param_validation import Hidden, Interval, RealNotInt, StrOptions
+# from ..utils.multiclass import check_classification_targets
+# from ..utils.validation import (
+#     _assert_all_finite_element_wise,
+#     _check_sample_weight,
+#     assert_all_finite,
+#     check_is_fitted,
+# )
+from sklearn.utils import Bunch, check_random_state, compute_sample_weight
+from sklearn.utils._param_validation import Hidden, Interval, RealNotInt, StrOptions
+from sklearn.utils.multiclass import check_classification_targets
+from sklearn.utils.validation import (
     _assert_all_finite_element_wise,
     _check_sample_weight,
     assert_all_finite,
@@ -114,8 +132,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         "min_impurity_decrease": [Interval(Real, 0.0, None, closed="left")],
         "ccp_alpha": [Interval(Real, 0.0, None, closed="left")],
         "monotonic_cst": ["array-like", None],
-        "gis_score": ["array-like", None],
-        "which_gis": [StrOptions({"all","on_feature_selection","on_impurity_improvement","on_oob","no_gis"})],
+        "w_prior": ["array-like", None],
+        "pk_configuration": [StrOptions({"all","on_feature_sampling","on_impurity_improvement","on_oob","standard"})],
         "v":[Interval(Real, 0.0, None, closed="left"), None],
         "k":[Interval(Real, 0.0, None, closed="left"), None],
         "embeddings_distances": [dict, None],
@@ -138,8 +156,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         class_weight=None,
         ccp_alpha=0.0,
         monotonic_cst=None,
-        gis_score=None,
-        which_gis="no_gis",
+        w_prior=None,
+        pk_configuration="standard",
         v=1.0,
         k=1.0,
         embeddings_distances = None,
@@ -157,8 +175,8 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self.class_weight = class_weight
         self.ccp_alpha = ccp_alpha
         self.monotonic_cst = monotonic_cst
-        self.gis_score = gis_score
-        self.which_gis = which_gis
+        self.w_prior = w_prior
+        self.pk_configuration = pk_configuration
         self.v = v
         self.k = k
         
@@ -385,13 +403,13 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         criterion = self.criterion
         if not isinstance(criterion, Criterion):
             if is_classification:
-                if self.embeddings_distances is not None and (self.which_gis == "all" or self.which_gis == "on_impurity_improvement"):                    
+                if self.embeddings_distances is not None and (self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement"):                    
                     criterion = CRITERIA_CLF[self.criterion](
-                        self.n_outputs_, self.n_classes_, self.gis_score, self.v, self.embeddings_distances
+                        self.n_outputs_, self.n_classes_, self.w_prior, self.v, self.embeddings_distances
                     )
-                elif self.embeddings_distances is None and (self.which_gis == "all" or self.which_gis == "on_impurity_improvement"):
+                elif self.embeddings_distances is None and (self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement"):
                     criterion = CRITERIA_CLF[self.criterion](
-                        self.n_outputs_, self.n_classes_, self.gis_score, self.v,  None
+                        self.n_outputs_, self.n_classes_, self.w_prior, self.v,  None
                     )
                 else:
                     criterion = CRITERIA_CLF[self.criterion](
@@ -447,14 +465,14 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                 monotonic_cst *= -1
 
         if not isinstance(self.splitter, Splitter):
-            if self.which_gis == "all" or self.which_gis == "on_feature_selection":
+            if self.pk_configuration == "all" or self.pk_configuration == "on_feature_sampling":
             
                 splitter = SPLITTERS[self.splitter](
                     criterion,
                     self.max_features_,
                     min_samples_leaf,
                     min_weight_leaf,
-                    self.gis_score,
+                    self.w_prior,
                     self.k, 
                     random_state,
                     monotonic_cst,
@@ -997,10 +1015,10 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         class_weight=None,
         ccp_alpha=0.0,
         monotonic_cst=None,
-        gis_score = None,
-        which_gis = "no_gis",
+        w_prior = None,
+        pk_configuration = "standard",
         v = 1.0,
-        k= 1.0,
+        k = 1.0,
         embeddings_distances = None,
     ):
         super().__init__(
@@ -1017,8 +1035,8 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             min_impurity_decrease=min_impurity_decrease,
             monotonic_cst=monotonic_cst,
             ccp_alpha=ccp_alpha,
-            gis_score=gis_score,
-            which_gis=which_gis,
+            w_prior=w_prior,
+            pk_configuration=pk_configuration,
             v=v,
             k=k,
             embeddings_distances=embeddings_distances,

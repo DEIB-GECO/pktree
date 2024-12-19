@@ -290,7 +290,7 @@ cdef class ClassificationCriterion(Criterion):
 
     def __cinit__(self, intp_t n_outputs,
                   cnp.ndarray[intp_t, ndim=1] n_classes,
-                  cnp.ndarray[float64_t, ndim=1] gis_score, 
+                  cnp.ndarray[float64_t, ndim=1] w_prior, 
                   float64_t v_param, 
                   dict embeddings_distances):
         """Initialize attributes for this criterion.
@@ -331,10 +331,10 @@ cdef class ClassificationCriterion(Criterion):
             if n_classes[k] > max_n_classes:
                 max_n_classes = n_classes[k]
 
-        if gis_score is not None:
-            self.gis_score = np.array(gis_score, dtype=np.float64)
+        if w_prior is not None:
+            self.w_prior = np.array(w_prior, dtype=np.float64)
         else:
-            self.gis_score = None
+            self.w_prior = None
 
     
 
@@ -647,19 +647,19 @@ cdef class ClassificationCriterion(Criterion):
         cdef float64_t sum_dist_score = 0.0
         cdef float64_t dist_score = 0.0
         cdef intp_t n_features = 0
-        cdef float64_t v = 0.25 # hyperparameter to give relevance to the gis score (0.25)
+        cdef float64_t v = 0.25 # hyperparameter to give relevance to the w_prior (0.25)
         cdef float64_t q = 3 # hyperparameter to give relevance to the embeddings score (2)
         cdef intp_t feature_counter = 0 # counter to get the number of relevant features for normalization
 
         with gil:
             n_features = len(already_selected_features)
         
-        if self.gis_score is not None and self.embeddings_distances is None:
+        if self.w_prior is not None and self.embeddings_distances is None:
             with gil:
-                score = self.gis_score[feature] 
+                score = self.w_prior[feature] 
                 return impurity_improvement * score**(self.v_param)
 
-        elif self.gis_score is not None and self.embeddings_distances is not None:
+        elif self.w_prior is not None and self.embeddings_distances is not None:
 
             if (n_features == 0):
                 return impurity_improvement
@@ -673,7 +673,7 @@ cdef class ClassificationCriterion(Criterion):
                             dist_score += self.embeddings_distances[(already_selected_features[i], feature)]
                 if dist_score > 0.0:
                     dist_score /= feature_counter
-                    score = (((self.gis_score[feature])*2) / dist_score)**q #q hyperparameter
+                    score = (((self.w_prior[feature])*2) / dist_score)**q #q hyperparameter
                     # print("score: ",dist_score)
                     return impurity_improvement * score
                 else:

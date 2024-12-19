@@ -92,7 +92,7 @@ cdef class ClassificationCriterion(Criterion):
 
     cdef intp_t[::1] n_classes
     cdef intp_t max_n_classes
-    cdef float64_t[::1] gis_score
+    cdef float64_t[::1] w_prior
     cdef float64_t v_param
     cdef dict embeddings_distances
 

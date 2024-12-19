@@ -36,7 +36,7 @@ cdef class Splitter:
     cdef public intp_t max_features      # Number of features to test
     cdef public intp_t min_samples_leaf  # Min samples in a leaf
     cdef public float64_t min_weight_leaf   # Minimum weight in a leaf
-    cdef public float64_t[::1] gis_score
+    cdef public float64_t[::1] w_prior
     cdef public float64_t k
 
     cdef object random_state             # Random state
