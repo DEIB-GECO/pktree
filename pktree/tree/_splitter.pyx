@@ -39,7 +39,7 @@ import numpy as np
 import random
 import threading
 
-from ..utils._random cimport our_rand_r
+from sklearn.utils._random cimport our_rand_r
 
 cdef extern from "<stdlib.h>":
     int RAND_MAX
@@ -389,7 +389,7 @@ cdef inline int node_split_best(
             inverted_w_prior = np.empty_like(w_prior)
        
         for i in range (0, f_i):
-            # inverted_gis[i] = ((1-gis_score[i])/gis_score[i])
+            #inverted_gis[i] = ((1-gis_score[i])/gis_score[i])
             inverted_w_prior[i] = 1/w_prior[i]
        
 
@@ -441,7 +441,7 @@ cdef inline int node_split_best(
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
                         random_state)
             
-            f_j=weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_gis, splitter.k, random_state[0])
+            f_j=weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
 
         else:
            
