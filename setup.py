@@ -64,6 +64,47 @@ setup(
             "pktree.tree._utils",
             sources=["pktree/tree/_utils.pyx"],
             include_dirs=[numpy.get_include()]
-        )]
+        ),
+        Extension(
+            "pktree.ensemble._gradient_boosting",
+            sources=["pktree/ensemble/_gradient_boosting.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting._binning",   
+            sources=["pktree/ensemble/_hist_gradient_boosting/_binning.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting._bitset",   
+            sources=["pktree/ensemble/_hist_gradient_boosting/_bitset.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting.common",
+            sources=["pktree/ensemble/_hist_gradient_boosting/common.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting._gradient_boosting",
+            sources=["pktree/ensemble/_hist_gradient_boosting/_gradient_boosting.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting.histogram",
+            sources=["pktree/ensemble/_hist_gradient_boosting/histogram.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting.splitting",
+            sources=["pktree/ensemble/_hist_gradient_boosting/splitting.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        Extension(
+            "pktree.ensemble._hist_gradient_boosting._predictor",
+            sources=["pktree/ensemble/_hist_gradient_boosting/_predictor.pyx"],
+            include_dirs=[numpy.get_include()]
+        ),
+        ]
     )
 )

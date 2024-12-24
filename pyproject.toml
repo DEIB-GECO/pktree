@@ -16,7 +16,7 @@ dependencies = [
 requires-python = ">=3.9"
 
 [tool.setuptools]
-packages = ["pktree", "pktree.tree"]
+packages = ["pktree", "pktree.tree", "pktree.ensemble", "pktree.ensemble._hist_gradient_boosting"]
 #ext-modules = [
 #    {name = "pktree.hello", sources = ["pktree/hello.pyx"]},
 #    {name = "pktree.tree._criterion", sources = ["pktree/tree/_criterion.pyx"], include-dirs=["numpy.get_include()"]},
