@@ -86,7 +86,7 @@ from sklearn.base import (
 from sklearn.exceptions import DataConversionWarning
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.preprocessing import OneHotEncoder
-from .tree import (
+from ..tree import (
     BaseDecisionTree,
     DecisionTreeClassifier,
     DecisionTreeRegressor,
