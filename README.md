@@ -1,10 +1,27 @@
-<img src="logo.png" alt="Logo" width="150" align="left" style="margin-right: 15px;">  
+<!-- <img src="logo.png" alt="Logo" width="110" align="left" style="margin-right: 15px;">  
 
-# PkTree: Incorporating Prior Knowledge into Tree-Based Models  
+# PkTree:
+_Incorporating Prior Knowledge into Tree-Based Models_
+ -->
 
-**pktree** is a Python package that enables the integration of prior knowledge into Decision Trees (DT) and Random Forests (RF). By prioritizing relevant features, this package enhances interpretability and aligns predictive models with prior insights.  
+<table>
+<tr>
+<td>
+<img src="logo.png" alt="Logo" width="300" style="margin-right: 15px;">
+</td>
+<td>
+<h1 align="left">PkTree</h1>
+<h4 align="left" style="font-weight: medium; color: gray;">
+A Python package for incorporating biological prior knowledge into tree-based models
+</h3>
+</td>
+</tr>
+</table>
 
-The enhancements in **pktree** build upon the `scikit-learn` library.
+
+**PkTree** is a Python package that enables the integration of prior knowledge into Decision Trees (DT) and Random Forests (RF). By prioritizing relevant features, this package enhances interpretability and aligns predictive models with prior insights.  
+
+The enhancements in **PkTree** build upon the `scikit-learn` library.
 
 ---
 
