@@ -1,4 +1,5 @@
 <img src="logo.png" alt="Logo" width="100" align="left" style="margin-right: 15px;">  
+
 # pktree: Incorporating Prior Knowledge into Tree-Based Models  
 
 **pktree** is a Python package that enables the integration of prior knowledge into Decision Trees (DT) and Random Forests (RF). By prioritizing relevant features, this package enhances interpretability and aligns predictive models with prior insights.  
@@ -83,7 +84,7 @@ For Random Forests:
 from pktree import ensemble
 
 # Create a biology-informed Random Forest model
-forest = RandomForestClassifier(pk_configuration='all', v=0.35)
+forest = ensemble.RandomForestClassifier(pk_configuration='all', v=0.35)
 
 # Train the model
 forest.fit(X_train, y_train)
