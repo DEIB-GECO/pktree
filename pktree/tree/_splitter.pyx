@@ -283,7 +283,6 @@ cdef class Splitter:
         self,
         ParentInfo* parent_record,
         SplitRecord* split,
-        list selected_features,
     ) except -1 nogil:
 
         """Find the best split on node samples[start:end].
@@ -318,7 +317,6 @@ cdef inline int node_split_best(
     Criterion criterion,
     SplitRecord* split,
     ParentInfo* parent_record,
-    list selected_features,
 ) except -1 nogil:
     """Find the best split on node samples[start:end]
 
@@ -378,10 +376,6 @@ cdef inline int node_split_best(
 
     cdef float64_t[::1] inverted_w_prior
     cdef float64_t[::1] w_prior = splitter.w_prior
-
-    
-    
-    # cdef intp_t[::1] selected_features = selected_features # vabè forse lo sto passando giusto, da testare. magari a proxy si può passare direttamente la lista? vediamo
 
     if w_prior is not None:
 
@@ -544,7 +538,7 @@ cdef inline int node_split_best(
                         (criterion.weighted_n_right < min_weight_leaf)):
                     continue
 
-                current_proxy_improvement = criterion.proxy_impurity_improvement(current_split.feature, selected_features)
+                current_proxy_improvement = criterion.proxy_impurity_improvement(current_split.feature)
 
                 if current_proxy_improvement > best_proxy_improvement:
                     best_proxy_improvement = current_proxy_improvement
@@ -585,7 +579,7 @@ cdef inline int node_split_best(
 
                 if not ((criterion.weighted_n_left < min_weight_leaf) or
                         (criterion.weighted_n_right < min_weight_leaf)):
-                    current_proxy_improvement = criterion.proxy_impurity_improvement(current_split.feature, selected_features)
+                    current_proxy_improvement = criterion.proxy_impurity_improvement(current_split.feature)
 
                     if current_proxy_improvement > best_proxy_improvement:
                         best_proxy_improvement = current_proxy_improvement
@@ -645,7 +639,6 @@ cdef inline int node_split_random(
     Criterion criterion,
     SplitRecord* split,
     ParentInfo* parent_record,
-    list selected_features,
 ) except -1 nogil:
     """Find the best random split on node samples[start:end]
 
@@ -859,7 +852,7 @@ cdef inline int node_split_random(
         ):
             continue
 
-        current_proxy_improvement = criterion.proxy_impurity_improvement(current_split.feature, selected_features)
+        current_proxy_improvement = criterion.proxy_impurity_improvement(current_split.feature)
 
         if current_proxy_improvement > best_proxy_improvement:
             current_split.n_missing = n_missing
@@ -937,8 +930,7 @@ cdef class BestSplitter(Splitter):
     cdef int node_split(
             self,
             ParentInfo* parent_record,
-            SplitRecord* split,
-            list selected_features
+            SplitRecord* split
     ) except -1 nogil:
         return node_split_best(
             self,
@@ -946,7 +938,6 @@ cdef class BestSplitter(Splitter):
             self.criterion,
             split,
             parent_record,
-            selected_features,
         )
 
 cdef class BestSparseSplitter(Splitter):
@@ -967,8 +958,7 @@ cdef class BestSparseSplitter(Splitter):
     cdef int node_split(
             self,
             ParentInfo* parent_record,
-            SplitRecord* split,
-            list selected_features
+            SplitRecord* split
     ) except -1 nogil:
         return node_split_best(
             self,
@@ -976,7 +966,6 @@ cdef class BestSparseSplitter(Splitter):
             self.criterion,
             split,
             parent_record,
-            selected_features,
         )
 
 cdef class RandomSplitter(Splitter):
@@ -997,8 +986,7 @@ cdef class RandomSplitter(Splitter):
     cdef int node_split(
             self,
             ParentInfo* parent_record,
-            SplitRecord* split,
-            list selected_features
+            SplitRecord* split
     ) except -1 nogil:
         return node_split_random(
             self,
@@ -1006,7 +994,6 @@ cdef class RandomSplitter(Splitter):
             self.criterion,
             split,
             parent_record,
-            selected_features,
         )
 
 cdef class RandomSparseSplitter(Splitter):
@@ -1026,8 +1013,7 @@ cdef class RandomSparseSplitter(Splitter):
     cdef int node_split(
             self,
             ParentInfo* parent_record,
-            SplitRecord* split,
-            list selected_features
+            SplitRecord* split
     ) except -1 nogil:
         return node_split_random(
             self,
@@ -1035,5 +1021,4 @@ cdef class RandomSparseSplitter(Splitter):
             self.criterion,
             split,
             parent_record,
-            selected_features,
         )

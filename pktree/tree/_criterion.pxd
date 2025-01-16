@@ -71,7 +71,7 @@ cdef class Criterion:
         float64_t impurity_left,
         float64_t impurity_right
     ) noexcept nogil
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_featrues) noexcept nogil
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil
     cdef bint check_monotonicity(
             self,
             int8_t monotonic_cst,
@@ -94,19 +94,21 @@ cdef class ClassificationCriterion(Criterion):
     cdef intp_t max_n_classes
     cdef float64_t[::1] w_prior
     cdef float64_t v_param
-    cdef dict embeddings_distances
 
     cdef float64_t[:, ::1] sum_total    # The sum of the weighted count of each label.
     cdef float64_t[:, ::1] sum_left     # Same as above, but for the left side of the split
     cdef float64_t[:, ::1] sum_right    # Same as above, but for the right side of the split
     cdef float64_t[:, ::1] sum_missing  # Same as above, but for missing values in X
 
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_featrues) noexcept nogil
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil
 
 cdef class RegressionCriterion(Criterion):
     """Abstract regression criterion."""
 
     cdef float64_t sq_sum_total
+
+    cdef float64_t[::1] w_prior
+    cdef float64_t v_param
 
     cdef float64_t[::1] sum_total    # The sum of w*y.
     cdef float64_t[::1] sum_left     # Same as above, but for the left side of the split

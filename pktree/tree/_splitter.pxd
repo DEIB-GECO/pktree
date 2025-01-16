@@ -102,7 +102,6 @@ cdef class Splitter:
         self,
         ParentInfo* parent,
         SplitRecord* split,
-        list selected_features,
     ) except -1 nogil
 
     cdef void node_value(self, float64_t* dest) noexcept nogil

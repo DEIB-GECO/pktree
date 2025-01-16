@@ -259,7 +259,10 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
         "w_prior": ["array-like", None],
         "pk_configuration": [StrOptions({"all","on_feature_sampling","on_impurity_improvement","standard"})],
         "on_oob": ["boolean"],
-        "embeddings_distances": [dict, None],
+        "pk_function": [StrOptions({"reciprocal", "exponential", "linear"})],
+        "v":[Interval(Real, 0.0, None, closed="left"), None],
+        "k":[Interval(Real, 0.0, None, closed="left"), None],
+        "r":[Interval(Real, 0.0, None, closed="left"), None],
     }
 
     @abstractmethod
@@ -278,12 +281,12 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
         class_weight=None,
         max_samples=None,
         w_prior=None,
-        pk_configuration=None,
+        pk_configuration="standard",
         on_oob=False,
         v=1, 
         k=1,
         r=1,
-        embeddings_distances=False,
+        pk_function="reciprocal",
     ):
         super().__init__(
             estimator=estimator,
@@ -302,10 +305,10 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
         self.w_prior = w_prior
         self.pk_configuration = pk_configuration
         self.on_oob = on_oob
-        self.v=1
-        self.k=1
-        self.r=1
-        self.embeddings_distances = embeddings_distances
+        self.v = v
+        self.k = k
+        self.r = r
+        self.pk_function = pk_function
 
     def apply(self, X):
         """
@@ -523,7 +526,7 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
             # TODO: verifica se ha senso
             #if not self.on_oob:
             trees = [
-                self._make_estimator(append=False, random_state=random_state, w_prior=self.w_prior, pk_configuration=self.pk_configuration, k=self.k, v=self.v, embeddings_distances=self.embeddings_distances)
+                self._make_estimator(append=False, random_state=random_state, w_prior=self.w_prior, pk_configuration=self.pk_configuration, k=self.k, v=self.v, pk_function=self.pk_function)
                 for i in range(n_more_estimators)
             ]
             # else:
@@ -845,12 +848,12 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
         class_weight=None,
         max_samples=None,
         w_prior=None,
-        pk_configuration=None,
+        pk_configuration="standard",
         on_oob=False,
         v=1, 
         k=1,
         r=1,
-        embeddings_distances=None,
+        pk_function="reciprocal",
     ):
         super().__init__(
             estimator=estimator,
@@ -870,7 +873,7 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
             v=v,
             k=k,
             r=r,
-            embeddings_distances=embeddings_distances
+            pk_function=pk_function,
         )
 
     @staticmethod
@@ -1133,6 +1136,13 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
         verbose=0,
         warm_start=False,
         max_samples=None,
+        w_prior=None,
+        pk_configuration="standard",
+        on_oob=False,
+        v=1, 
+        k=1,
+        r=1,
+        pk_function="reciprocal",
     ):
         super().__init__(
             estimator,
@@ -1145,6 +1155,13 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
             verbose=verbose,
             warm_start=warm_start,
             max_samples=max_samples,
+            w_prior=w_prior,
+            pk_configuration=pk_configuration,
+            on_oob=on_oob,
+            v=v,
+            k=k,
+            r=r,
+            pk_function=pk_function,
         )
 
     def predict(self, X):
@@ -1179,11 +1196,19 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
         else:
             y_hat = np.zeros((X.shape[0]), dtype=np.float64)
 
+        if self.oob_score and self.tot_scores_norm is not None:
+            # print("correcting entering here")
+            #weight_power = 3 #TODO: parametrizza questo
+            adjusted_weights = np.power(self.tot_scores_norm, self.r)
+            adjusted_weights /= np.sum(adjusted_weights)
+        else:
+            adjusted_weights = np.ones(len(self.estimators_))
+
         # Parallel loop
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose, require="sharedmem")(
-            delayed(_accumulate_prediction)(e.predict, X, [y_hat], lock)
-            for e in self.estimators_
+            delayed(_accumulate_prediction)(e.predict, X, [y_hat], lock, adjusted_weights[i])
+            for i,e in enumerate(self.estimators_)
         )
 
         y_hat /= len(self.estimators_)
@@ -1622,12 +1647,12 @@ class RandomForestClassifier(ForestClassifier):
         max_samples=None,
         monotonic_cst=None,
         w_prior=None,
-        pk_configuration=None,
+        pk_configuration="standard",
         on_oob=False,
         v=1, 
         k=1,
         r=1,
-        embeddings_distances=None,
+        pk_function="reciprocal",
     ):
         super().__init__(
             estimator=DecisionTreeClassifier(),
@@ -1647,7 +1672,10 @@ class RandomForestClassifier(ForestClassifier):
                 "w_prior",
                 "pk_configuration",
                 "on_oob",
-                "embeddings_distances"
+                "v",
+                "k",
+                "r",
+                "pk_function",
             ),
             bootstrap=bootstrap,
             oob_score=oob_score,
@@ -1663,7 +1691,7 @@ class RandomForestClassifier(ForestClassifier):
             v=v,
             k=k,
             r=r,
-            embeddings_distances=embeddings_distances,
+            pk_function=pk_function
         )
 
         self.criterion = criterion
@@ -1676,6 +1704,13 @@ class RandomForestClassifier(ForestClassifier):
         self.min_impurity_decrease = min_impurity_decrease
         self.monotonic_cst = monotonic_cst
         self.ccp_alpha = ccp_alpha
+        self.w_prior=w_prior
+        self.pk_configuration=pk_configuration
+        self.on_oob=on_oob
+        self.v=v
+        self.k=k
+        self.r=r
+        self.pk_function=pk_function
 
 
 class RandomForestRegressor(ForestRegressor):
@@ -1999,6 +2034,13 @@ class RandomForestRegressor(ForestRegressor):
         ccp_alpha=0.0,
         max_samples=None,
         monotonic_cst=None,
+        w_prior=None,
+        pk_configuration="standard",
+        on_oob=False,
+        v=1, 
+        k=1,
+        r=1,
+        pk_function="reciprocal",
     ):
         super().__init__(
             estimator=DecisionTreeRegressor(),
@@ -2015,6 +2057,12 @@ class RandomForestRegressor(ForestRegressor):
                 "random_state",
                 "ccp_alpha",
                 "monotonic_cst",
+                "pk_configuration",
+                "on_oob",
+                "v",
+                "k",
+                "r",
+                "pk_function",
             ),
             bootstrap=bootstrap,
             oob_score=oob_score,
@@ -2023,6 +2071,13 @@ class RandomForestRegressor(ForestRegressor):
             verbose=verbose,
             warm_start=warm_start,
             max_samples=max_samples,
+            w_prior=w_prior,
+            pk_configuration=pk_configuration,
+            on_oob=on_oob,
+            v=v,
+            k=k,
+            r=r,
+            pk_function=pk_function
         )
 
         self.criterion = criterion
@@ -2035,6 +2090,13 @@ class RandomForestRegressor(ForestRegressor):
         self.min_impurity_decrease = min_impurity_decrease
         self.ccp_alpha = ccp_alpha
         self.monotonic_cst = monotonic_cst
+        self.w_prior=w_prior
+        self.pk_configuration=pk_configuration
+        self.on_oob=on_oob
+        self.v=v
+        self.k=k
+        self.r=r
+        self.pk_function=pk_function
 
 
 class ExtraTreesClassifier(ForestClassifier):

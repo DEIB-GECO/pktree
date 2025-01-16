@@ -134,9 +134,9 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         "monotonic_cst": ["array-like", None],
         "w_prior": ["array-like", None],
         "pk_configuration": [StrOptions({"all","on_feature_sampling","on_impurity_improvement","on_oob","standard"})],
+        "pk_function": [StrOptions({"reciprocal", "exponential", "linear"})],
         "v":[Interval(Real, 0.0, None, closed="left"), None],
         "k":[Interval(Real, 0.0, None, closed="left"), None],
-        "embeddings_distances": [dict, None],
     }
 
     @abstractmethod
@@ -160,7 +160,7 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         pk_configuration="standard",
         v=1.0,
         k=1.0,
-        embeddings_distances = None,
+        pk_function="reciprocal",
     ):
         self.criterion = criterion
         self.splitter = splitter
@@ -179,9 +179,28 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         self.pk_configuration = pk_configuration
         self.v = v
         self.k = k
+        self.pk_function = pk_function
+
+    def check_w_prior(self):
+        """Checks whether the w_prior array passed by parameter has
+           values in the format [0.5 : 1], where lower values represent higher prior knowledge.
+           If not, normalizes the scores to obtain an array in such range, following the function
+           specified in the pk_function parameter. 
+        """
+        if not isinstance(self.w_prior, np.ndarray):
+            self.w_prior = np.array(self.w_prior)
+
+        w_min = np.min(self.w_prior)
+        w_max = np.max(self.w_prior)
         
-       
-        self.embeddings_distances = embeddings_distances
+        if w_min < 0 or w_max > 1:
+            self.w_prior = (self.w_prior - w_min) / (w_max - w_min)
+
+        self.w_prior = {
+            "reciprocal": lambda x: 1 / (1 + x),
+            "exponential": lambda x: 1 / np.exp(x),
+            "linear": lambda x: 1 - x
+        }[self.pk_function](self.w_prior)
 
     def get_depth(self):
         """Return the depth of the decision tree.
@@ -399,24 +418,28 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         else:
             min_weight_leaf = self.min_weight_fraction_leaf * np.sum(sample_weight)
 
+        # Check w_prior range and normalize
+        if self.w_prior is not None:
+            self.check_w_prior()
+            # print(self.w_prior)
+
         # Build tree
         criterion = self.criterion
         if not isinstance(criterion, Criterion):
             if is_classification:
-                if self.embeddings_distances is not None and (self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement"):                    
+                if self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement":
                     criterion = CRITERIA_CLF[self.criterion](
-                        self.n_outputs_, self.n_classes_, self.w_prior, self.v, self.embeddings_distances
-                    )
-                elif self.embeddings_distances is None and (self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement"):
-                    criterion = CRITERIA_CLF[self.criterion](
-                        self.n_outputs_, self.n_classes_, self.w_prior, self.v,  None
+                        self.n_outputs_, self.n_classes_, self.w_prior, self.v
                     )
                 else:
                     criterion = CRITERIA_CLF[self.criterion](
-                        self.n_outputs_, self.n_classes_, None, 1.0, None
+                        self.n_outputs_, self.n_classes_, None, 1.0
                     )
             else:
-                criterion = CRITERIA_REG[self.criterion](self.n_outputs_, n_samples)
+                if self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement":
+                    criterion = CRITERIA_REG[self.criterion](self.n_outputs_, n_samples, self.w_prior, self.v)
+                else:
+                    criterion = CRITERIA_REG[self.criterion](self.n_outputs_, n_samples, None, 1.0)
         else:
             # Make a deepcopy in case the criterion has mutable attributes that
             # might be shared and modified concurrently during parallel fitting
@@ -1019,7 +1042,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         pk_configuration = "standard",
         v = 1.0,
         k = 1.0,
-        embeddings_distances = None,
+        pk_function = "reciprocal",
     ):
         super().__init__(
             criterion=criterion,
@@ -1039,7 +1062,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
             pk_configuration=pk_configuration,
             v=v,
             k=k,
-            embeddings_distances=embeddings_distances,
+            pk_function=pk_function,
         )
 
     @_fit_context(prefer_skip_nested_validation=True)
@@ -1072,10 +1095,6 @@ class DecisionTreeClassifier(ClassifierMixin, BaseDecisionTree):
         self : DecisionTreeClassifier
             Fitted estimator.
         """
-        # if self.embeddings_distances is not None:
-        #     print(list(self.embeddings_distances.items())[:2])
-        # else:
-        #     print("NO")
         
         super()._fit(
             X,
@@ -1399,6 +1418,11 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         min_impurity_decrease=0.0,
         ccp_alpha=0.0,
         monotonic_cst=None,
+        w_prior = None,
+        pk_configuration = "standard",
+        v = 1.0,
+        k = 1.0,
+        pk_function = "reciprocal",
     ):
         super().__init__(
             criterion=criterion,
@@ -1413,6 +1437,11 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
             min_impurity_decrease=min_impurity_decrease,
             ccp_alpha=ccp_alpha,
             monotonic_cst=monotonic_cst,
+            w_prior=w_prior,
+            pk_configuration=pk_configuration,
+            v=v,
+            k=k,
+            pk_function=pk_function,
         )
 
     @_fit_context(prefer_skip_nested_validation=True)

@@ -141,7 +141,7 @@ class BaseEnsemble(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
         else:
             self.estimator_ = default
 
-    def _make_estimator(self, append=True, random_state=None, w_prior=None, pk_configuration="standard", k=1, v=1, embeddings_distances=None):
+    def _make_estimator(self, append=True, random_state=None, w_prior=None, pk_configuration="standard", k=1, v=1, pk_function="reciprocal"):
         """Make and configure a copy of the `estimator_` attribute.
 
         Warning: This method should be used to properly instantiate new
@@ -161,10 +161,8 @@ class BaseEnsemble(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
             estimator.set_params(pk_configuration=pk_configuration)
             estimator.set_params(k=k)
             estimator.set_params(v=v)
+            estimator.set_params(pk_function=pk_function)
             
-        if embeddings_distances is not None:
-            estimator.set_params(embeddings_distances=embeddings_distances)
-
         if append:
             self.estimators_.append(estimator)
 
