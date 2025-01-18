@@ -300,6 +300,10 @@ cdef class ClassificationCriterion(Criterion):
             The number of targets, the dimensionality of the prediction
         n_classes : numpy.ndarray, dtype=intp_t
             The number of unique classes in each target
+        w_prior: numpy.ndarray, dtype=float64_t
+            The prior knowledge scores of features
+        v_param: float64_t
+            The hyperparameter to regulate the w_prior effect
         """
         self.start = 0
         self.pos = 0
@@ -317,7 +321,6 @@ cdef class ClassificationCriterion(Criterion):
 
         self.n_classes = np.empty(n_outputs, dtype=np.intp)
         
-
         cdef intp_t k = 0
         cdef intp_t j = 0
         cdef intp_t max_n_classes = 0
@@ -330,6 +333,7 @@ cdef class ClassificationCriterion(Criterion):
             if n_classes[k] > max_n_classes:
                 max_n_classes = n_classes[k]
 
+        # Set up the w_prior parameter
         if w_prior is not None:
             self.w_prior = np.array(w_prior, dtype=np.float64)
         else:
@@ -636,6 +640,7 @@ cdef class ClassificationCriterion(Criterion):
         cdef float64_t impurity_improvement = (- self.weighted_n_right * impurity_right - self.weighted_n_left * impurity_left)
         cdef float64_t score = 0.0
         
+        # Applying the w_prior score to the proxy impurity improvement 
         if self.w_prior is not None:
             with gil:
                 score = self.w_prior[feature] 
@@ -864,6 +869,12 @@ cdef class RegressionCriterion(Criterion):
 
         n_samples : intp_t
             The total number of samples to fit on
+
+        w_prior: numpy.ndarray, dtype=float64_t
+            The prior knowledge scores of features
+
+        v_param: float64_t
+            The hyperparameter to regulate the w_prior effect
         """
         # Default values
         self.start = 0
@@ -880,6 +891,7 @@ cdef class RegressionCriterion(Criterion):
 
         self.sq_sum_total = 0.0
 
+        # Setting up of w_prior parameter
         if w_prior is not None:
             self.w_prior = np.array(w_prior, dtype=np.float64)
         else:
@@ -1161,7 +1173,8 @@ cdef class MSE(RegressionCriterion):
                                                proxy_impurity_right / self.weighted_n_right)
 
         cdef float64_t score = 0.0
-        
+
+        # Applying the w_prior score to the proxy impurity improvement 
         if self.w_prior is not None:
             with gil:
                 score = self.w_prior[feature] 
@@ -1596,6 +1609,7 @@ cdef class FriedmanMSE(MSE):
         cdef float64_t impurity_improvement = diff * diff / (self.weighted_n_left * self.weighted_n_right)
         cdef float64_t score = 0.0
         
+        # Applying the w_prior score to the proxy impurity improvement
         if self.w_prior is not None:
             with gil:
                 score = self.w_prior[feature] 
@@ -1705,6 +1719,7 @@ cdef class Poisson(RegressionCriterion):
         cdef float64_t impurity_improvement = - proxy_impurity_left - proxy_impurity_right
         cdef float64_t score = 0.0
         
+        # Applying the w_prior score to the proxy impurity improvement 
         if self.w_prior is not None:
             with gil:
                 score = self.w_prior[feature] 

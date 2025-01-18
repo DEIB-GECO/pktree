@@ -24,9 +24,7 @@ from libc.string cimport memcpy
 from libc.stdlib cimport rand
 from libc.stdlib cimport srand
 from libc.stdlib cimport malloc, realloc, free
-from libc.stdio cimport printf
 
-# from ..utils._typedefs cimport int8_t
 from sklearn.utils._typedefs cimport int8_t
 from ._criterion cimport Criterion
 from ._partitioner cimport (
@@ -65,17 +63,39 @@ cdef inline void _init_split(SplitRecord* self, intp_t start_pos) noexcept nogil
     self.missing_go_to_left = False
     self.n_missing = 0
 
-#--------------------------------------------------------------NP-VERSION------------------------------------------------
 
 cdef int weighted_rand_int_numpy(int low, int high, intp_t[::1] features, float64_t[::1] w_prior, float64_t k, intp_t random_state) with gil:
-    
-    #ptr_as_int = random_state[0]
+    """
+    Weighted random sampling function.
+
+    This function performs weighted sampling of integers based on their associated weights (w_prior).
+    The weights are adjusted using a power scaling factor k.
+
+    Parameters
+    ----------
+    low : int
+        Lower bound (inclusive) for the range of integers to sample from.
+    high : int
+        Upper bound (exclusive) for the range of integers to sample from.
+    features : intp_t[::1]
+        Array of indices representing features.
+    w_prior : float64_t[::1]
+        Array of prior weights corresponding to features.
+    k : float64_t
+        Scaling factor applied to the weights (w_prior).
+    random_state : intp_t
+        Seed for random number generation to ensure reproducibility.
+
+    Return
+    -------
+    int
+        Result of the weighted random sampling process.
+    """
     indices = np.arange(low, high)
     new_idxs = np.array(features)[low:high]
     
     adjusted_w_prior = np.array(w_prior)[new_idxs]
     adjusted_w_prior = adjusted_w_prior**k
-    #print(adjusted_w_prior)
     total_weight = np.sum(adjusted_w_prior)
     if total_weight <= 1e-10:
         np.random.seed(random_state) 
@@ -124,6 +144,12 @@ cdef class Splitter:
             The minimal weight each leaf can have, where the weight is the sum
             of the weights of each sample in it.
 
+        w_prior : float64_t[::1]
+            The prior knowledge score for each feature.
+
+        k : float64_t
+            The scaling factor applied to the weights (w_prior).
+
         random_state : object
             The user inputted random state to be used for pseudo-randomness
 
@@ -141,7 +167,6 @@ cdef class Splitter:
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_leaf = min_weight_leaf
         self.random_state = random_state
-        #print(self.random_state)
         self.monotonic_cst = monotonic_cst
         self.with_monotonic_cst = monotonic_cst is not None
         self.w_prior = w_prior
@@ -198,7 +223,6 @@ cdef class Splitter:
         """
 
         self.rand_r_state = self.random_state.randint(0, RAND_R_MAX)
-        #printf("%x\n", self.rand_r_state)
         cdef intp_t n_samples = X.shape[0]
 
         # Create a new array which will be used to store nonzero
@@ -374,6 +398,7 @@ cdef inline int node_split_best(
 
     partitioner.init_node_split(start, end)
 
+    # Inverting the w_prior to properly fit its usage
     cdef float64_t[::1] inverted_w_prior
     cdef float64_t[::1] w_prior = splitter.w_prior
 
@@ -383,7 +408,6 @@ cdef inline int node_split_best(
             inverted_w_prior = np.empty_like(w_prior)
        
         for i in range (0, f_i):
-            #inverted_gis[i] = ((1-gis_score[i])/gis_score[i])
             inverted_w_prior[i] = 1/w_prior[i]
        
 
@@ -406,14 +430,6 @@ cdef inline int node_split_best(
              n_visited_features <= n_found_constants + n_drawn_constants)):
 
         n_visited_features += 1
-        # with gil:
-            # print("n const:", n_total_constants)
-            # print("n found const:",  n_found_constants)
-            # print("n drawn const:", n_drawn_constants)
-        # with gil:
-        #     print("number of visited features: ", n_visited_features)
-        #     # print("current feature: ", features[f_j])
-        #     print("drawn + found constants: ", n_drawn_constants+n_found_constants)
 
         # Loop invariant: elements of features in
         # - [0:n_drawn_constant[ - holds drawn and known constant features;
@@ -426,16 +442,14 @@ cdef inline int node_split_best(
         # - [f_i:n_features[ - holds features that have been drawn
         #   and aren't constant.
 
-        # Draw a feature at random
+        # Draw a feature, through random sampling or weighted sampling depending on the selected configuration.
         
-        #if splitter.gis_score is not None:
         if splitter.w_prior is not None:
                
-            
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
-                        random_state)
+                        random_state) # TODO: this is necessary to change the random state, need to find a way to remove it.
             
-            f_j=weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
+            f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
 
         else:
            
@@ -453,8 +467,7 @@ cdef inline int node_split_best(
         # f_j in the interval [n_known_constants, f_i - n_found_constants[
         f_j += n_found_constants
         # f_j in the interval [n_total_constants, f_i[
-        # with gil:
-        #     print("feature considered for split eval:", f_j, "feature[fj]: ", features[f_j])
+
         current_split.feature = features[f_j]
         if (current_split.feature == 0):
             splitter.counter_seen += 1
@@ -469,8 +482,6 @@ cdef inline int node_split_best(
             # This feature is considered constant (max - min <= FEATURE_THRESHOLD)
             feature_values[end_non_missing - 1] <= feature_values[start] + FEATURE_THRESHOLD
         ):
-            # with gil:
-                # print("missing or constant")
             # We consider this feature constant in this case.
             # Since finding a split among constant feature is not valuable,
             # we do not consider this feature for splitting.
@@ -590,9 +601,6 @@ cdef inline int node_split_best(
                         best_split = current_split
     
     # Reorganize into samples[start:best_split.pos] + samples[best_split.pos:end]
-    #with gil:
-    #    print(f"Gene 0 has been seen {splitter.counter_seen} over {splitter.counter_node} nodes")
-
 
     if best_split.pos < end:
         partitioner.partition_samples_final(
@@ -695,10 +703,9 @@ cdef inline int node_split_random(
 
     partitioner.init_node_split(start, end)
 
+    # Initializing and inverting the w_prior score, for each feature
     cdef float64_t[::1] inverted_w_prior
     cdef float64_t[::1] w_prior = splitter.w_prior
-    with gil:
-        print(splitter.w_prior)
 
     if splitter.w_prior is not None:
 
@@ -707,7 +714,6 @@ cdef inline int node_split_random(
         
         for i in range (0, f_i):
             inverted_w_prior[i] = ((1-w_prior[i])/w_prior[i])
-            #tot_weight += inverted_gis[i]
 
     # Sample up to max_features without replacement using a
     # Fisher-Yates-based algorithm (using the local variables `f_i` and
@@ -736,13 +742,13 @@ cdef inline int node_split_random(
         # - [f_i:n_features[ holds features that have been drawn
         #   and aren't constant.
 
-        # Draw a feature at random
+        # Draw a feature, through random or weighted sampling depending on the selected configuration.
         if splitter.w_prior is not None:
                
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
-                        random_state)
+                        random_state) # TODO: this is necessary to change the random state, need to find a way to remove it.
             
-            f_j=weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
+            f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
 
         else:
            

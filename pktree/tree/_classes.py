@@ -15,15 +15,6 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.sparse import issparse
 
-# from ..base import (
-#     BaseEstimator,
-#     ClassifierMixin,
-#     MultiOutputMixin,
-#     RegressorMixin,
-#     _fit_context,
-#     clone,
-#     is_classifier,
-# )
 from sklearn.base import (
     BaseEstimator,
     ClassifierMixin,
@@ -33,15 +24,7 @@ from sklearn.base import (
     clone,
     is_classifier,
 )
-# from ..utils import Bunch, check_random_state, compute_sample_weight
-# from ..utils._param_validation import Hidden, Interval, RealNotInt, StrOptions
-# from ..utils.multiclass import check_classification_targets
-# from ..utils.validation import (
-#     _assert_all_finite_element_wise,
-#     _check_sample_weight,
-#     assert_all_finite,
-#     check_is_fitted,
-# )
+
 from sklearn.utils import Bunch, check_random_state, compute_sample_weight
 from sklearn.utils._param_validation import Hidden, Interval, RealNotInt, StrOptions
 from sklearn.utils.multiclass import check_classification_targets
@@ -183,9 +166,14 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
 
     def check_w_prior(self):
         """Checks whether the w_prior array passed by parameter has
-           values in the format [0.5 : 1], where lower values represent higher prior knowledge.
-           If not, normalizes the scores to obtain an array in such range, following the function
-           specified in the pk_function parameter. 
+        values in the format [0.5 : 1], where lower values represent higher prior knowledge.
+        
+        If not, normalizes the scores to obtain an array in such range, following the function
+        specified in the pk_function parameter. 
+
+        Returns
+        -------
+        void
         """
         if not isinstance(self.w_prior, np.ndarray):
             self.w_prior = np.array(self.w_prior)
@@ -421,11 +409,11 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         # Check w_prior range and normalize
         if self.w_prior is not None:
             self.check_w_prior()
-            # print(self.w_prior)
 
         # Build tree
         criterion = self.criterion
         if not isinstance(criterion, Criterion):
+            # Based on the selected configuration, instantiate the criterion class
             if is_classification:
                 if self.pk_configuration == "all" or self.pk_configuration == "on_impurity_improvement":
                     criterion = CRITERIA_CLF[self.criterion](
@@ -488,8 +476,9 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                 monotonic_cst *= -1
 
         if not isinstance(self.splitter, Splitter):
+
+            # Based on the selected configuration, instantiate the splitter class
             if self.pk_configuration == "all" or self.pk_configuration == "on_feature_sampling":
-            
                 splitter = SPLITTERS[self.splitter](
                     criterion,
                     self.max_features_,
@@ -501,7 +490,6 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
                     monotonic_cst,
                 )
             else:
-             
                 splitter = SPLITTERS[self.splitter](
                     criterion,
                     self.max_features_,

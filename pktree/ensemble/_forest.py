@@ -45,36 +45,6 @@ import numpy as np
 from scipy.sparse import hstack as sparse_hstack
 from scipy.sparse import issparse
 
-# from ..base import (
-#     ClassifierMixin,
-#     MultiOutputMixin,
-#     RegressorMixin,
-#     TransformerMixin,
-#     _fit_context,
-#     is_classifier,
-# )
-# from ..exceptions import DataConversionWarning
-# from ..metrics import accuracy_score, r2_score
-# from ..preprocessing import OneHotEncoder
-# from ..tree import (
-#     BaseDecisionTree,
-#     DecisionTreeClassifier,
-#     DecisionTreeRegressor,
-#     ExtraTreeClassifier,
-#     ExtraTreeRegressor,
-# )
-# from ..tree._tree import DOUBLE, DTYPE
-# from ..utils import check_random_state, compute_sample_weight
-# from ..utils._param_validation import Interval, RealNotInt, StrOptions
-# from ..utils._tags import _safe_tags
-# from ..utils.multiclass import check_classification_targets, type_of_target
-# from ..utils.parallel import Parallel, delayed
-# from ..utils.validation import (
-#     _check_feature_names_in,
-#     _check_sample_weight,
-#     _num_samples,
-#     check_is_fitted,
-# )
 from sklearn.base import (
     ClassifierMixin,
     MultiOutputMixin,
@@ -523,17 +493,10 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
                 # would have got if we hadn't used a warm_start.
                 random_state.randint(MAX_INT, size=len(self.estimators_))
 
-            # TODO: verifica se ha senso
-            #if not self.on_oob:
             trees = [
                 self._make_estimator(append=False, random_state=random_state, w_prior=self.w_prior, pk_configuration=self.pk_configuration, k=self.k, v=self.v, pk_function=self.pk_function)
                 for i in range(n_more_estimators)
             ]
-            # else:
-            #     trees = [
-            #         self._make_estimator(append=False, random_state=random_state, w_prior=self.w_prior, pk_configuration="no_gis")
-            #         for i in range(n_more_estimators)
-            #     ]
 
             # Parallel loop: we prefer the threading backend as the Cython code
             # for fitting the trees is internally releasing the Python GIL
@@ -623,6 +586,8 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
             The data matrix.
         y : ndarray of shape (n_samples, n_outputs)
             The target matrix.
+        scoring_function: default=None
+            The function used to calculate the performance of each tree.
 
         Returns
         -------
@@ -676,20 +641,17 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
                 features = estimator.tree_.feature[estimator.tree_.feature > 0]
 
                 pk_score = (1 - self.w_prior[features]) / self.w_prior[features]
-                w_priors[i] = np.mean(pk_score) # o mediana?
-                # print(f"tree {i} gis mean: {w_priors[i]}")
-                # print(f"tree {i} gis median: {np.median(gis)}")
-
+                w_priors[i] = np.mean(pk_score)
 
             oob_pred[unsampled_indices, ...] += y_pred
             n_oob_pred[unsampled_indices, :] += 1
 
+        # Getting the prior knowledge and performance score of the tree, then normalizing them
         if self.on_oob:
             w_priors_max = np.max(w_priors)
             f_max = np.max(f_scores)
             
             tot_scores = (w_priors / w_priors_max + f_scores / f_max) / 2
-
             tot_scores_norm = tot_scores / np.sum(tot_scores)
 
             self.tot_scores_norm = tot_scores_norm
@@ -1049,9 +1011,8 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
         # Assign chunk of trees to jobs
         n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
 
+        # Scaling the weights for the parameter r, then re-normalizing it.
         if self.oob_score and self.tot_scores_norm is not None:
-            # print("correcting entering here")
-            #weight_power = 3 #TODO: parametrizza questo
             adjusted_weights = np.power(self.tot_scores_norm, self.r)
             adjusted_weights /= np.sum(adjusted_weights)
         else:
@@ -1067,8 +1028,6 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
             delayed(_accumulate_prediction)(e.predict_proba, X, all_proba, lock, adjusted_weights[i])
             for i,e in enumerate(self.estimators_)
         )
-
-        #print("all_proba: ",all_proba)
 
         for proba in all_proba:
             proba /= len(self.estimators_)
@@ -1196,9 +1155,8 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
         else:
             y_hat = np.zeros((X.shape[0]), dtype=np.float64)
 
+        # scaling the weights for the parameter r, then re-normalizing it.
         if self.oob_score and self.tot_scores_norm is not None:
-            # print("correcting entering here")
-            #weight_power = 3 #TODO: parametrizza questo
             adjusted_weights = np.power(self.tot_scores_norm, self.r)
             adjusted_weights /= np.sum(adjusted_weights)
         else:
