@@ -117,7 +117,7 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         "monotonic_cst": ["array-like", None],
         "w_prior": ["array-like", None],
         "pk_configuration": [StrOptions({"all","on_feature_sampling","on_impurity_improvement","on_oob","standard"})],
-        "pk_function": [StrOptions({"reciprocal", "exponential", "linear"})],
+        "pk_function": [StrOptions({"reciprocal", "exponential", "linear"}), None],
         "v":[Interval(Real, 0.0, None, closed="left"), None],
         "k":[Interval(Real, 0.0, None, closed="left"), None],
     }
@@ -181,13 +181,14 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
         w_min = np.min(self.w_prior)
         w_max = np.max(self.w_prior)
         
-        if w_min < 0 or w_max > 1:
+        if w_max > 1:
             self.w_prior = (self.w_prior - w_min) / (w_max - w_min)
 
         self.w_prior = {
             "reciprocal": lambda x: 1 / (1 + x),
             "exponential": lambda x: 1 / np.exp(x),
-            "linear": lambda x: 1 - x
+            "linear": lambda x: 1 - x,
+            None: lambda x: x
         }[self.pk_function](self.w_prior)
 
     def get_depth(self):
