@@ -399,16 +399,16 @@ cdef inline int node_split_best(
     partitioner.init_node_split(start, end)
 
     # Inverting the w_prior to properly fit its usage
-    cdef float64_t[::1] inverted_w_prior
-    cdef float64_t[::1] w_prior = splitter.w_prior
+    # cdef float64_t[::1] inverted_w_prior
+    # cdef float64_t[::1] w_prior = splitter.w_prior
 
-    if w_prior is not None:
+    # if w_prior is not None:
 
-        with gil:
-            inverted_w_prior = np.empty_like(w_prior)
+    #     with gil:
+    #         inverted_w_prior = np.empty_like(w_prior)
        
-        for i in range (0, f_i):
-            inverted_w_prior[i] = 1/w_prior[i]
+    #     for i in range (0, f_i):
+    #         inverted_w_prior[i] = 1/w_prior[i]
        
 
     # Sample up to max_features without replacement using a
@@ -449,7 +449,7 @@ cdef inline int node_split_best(
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
                         random_state) # TODO: this is necessary to change the random state, need to find a way to remove it.
             
-            f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
+            f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, splitter.w_prior, splitter.k, random_state[0])
 
         else:
            
@@ -704,16 +704,16 @@ cdef inline int node_split_random(
     partitioner.init_node_split(start, end)
 
     # Initializing and inverting the w_prior score, for each feature
-    cdef float64_t[::1] inverted_w_prior
-    cdef float64_t[::1] w_prior = splitter.w_prior
+    # cdef float64_t[::1] inverted_w_prior
+    # cdef float64_t[::1] w_prior = splitter.w_prior
 
-    if splitter.w_prior is not None:
+    # if splitter.w_prior is not None:
 
-        with gil:
-            inverted_w_prior = np.empty_like(w_prior)
+    #     with gil:
+    #         inverted_w_prior = np.empty_like(w_prior)
         
-        for i in range (0, f_i):
-            inverted_w_prior[i] = ((1-w_prior[i])/w_prior[i])
+    #     for i in range (0, f_i):
+    #         inverted_w_prior[i] = ((1-w_prior[i])/w_prior[i])
 
     # Sample up to max_features without replacement using a
     # Fisher-Yates-based algorithm (using the local variables `f_i` and
@@ -748,7 +748,7 @@ cdef inline int node_split_random(
             f_j = rand_int(n_drawn_constants, f_i - n_found_constants,
                         random_state) # TODO: this is necessary to change the random state, need to find a way to remove it.
             
-            f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, inverted_w_prior, splitter.k, random_state[0])
+            f_j = weighted_rand_int_numpy(n_drawn_constants, f_i - n_found_constants, features, splitter.w_prior, splitter.k, random_state[0])
 
         else:
            

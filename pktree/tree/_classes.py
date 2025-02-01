@@ -480,12 +480,21 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
 
             # Based on the selected configuration, instantiate the splitter class
             if self.pk_configuration == "all" or self.pk_configuration == "on_feature_sampling":
+
+                if self.w_prior is not None:
+                    inverted_w_prior = np.empty_like(self.w_prior)
+            
+                    for i in range (self.w_prior.size):
+                        inverted_w_prior[i] = 1/self.w_prior[i]
+                else:
+                    inverted_w_prior = None
+
                 splitter = SPLITTERS[self.splitter](
                     criterion,
                     self.max_features_,
                     min_samples_leaf,
                     min_weight_leaf,
-                    self.w_prior,
+                    inverted_w_prior,
                     self.k, 
                     random_state,
                     monotonic_cst,
