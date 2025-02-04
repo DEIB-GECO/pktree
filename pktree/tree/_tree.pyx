@@ -258,7 +258,6 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                         splitter.node_split(
                             &parent_record,
                             &split,
-                            tree.feature.tolist(),
                         )
                         # If EPSILON=0 in the below comparison, float precision
                         # issues stop splitting, producing trees that are
@@ -617,7 +616,6 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
                 splitter.node_split(
                     parent_record,
                     &split,
-                    tree.feature.tolist(),
                 )
                 # If EPSILON=0 in the below comparison, float precision issues stop
                 # splitting early, producing trees that are dissimilar to v0.18

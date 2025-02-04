@@ -9,18 +9,18 @@ from warnings import warn
 import numpy as np
 from scipy.sparse import issparse
 
-from ..base import OutlierMixin, _fit_context
+from sklearn.base import OutlierMixin, _fit_context
 from ..tree import ExtraTreeRegressor
 from ..tree._tree import DTYPE as tree_dtype
-from ..utils import (
+from sklearn.utils import (
     check_array,
     check_random_state,
     gen_batches,
 )
-from ..utils._chunking import get_chunk_n_rows
-from ..utils._param_validation import Interval, RealNotInt, StrOptions
-from ..utils.parallel import Parallel, delayed
-from ..utils.validation import _num_samples, check_is_fitted
+from sklearn.utils._chunking import get_chunk_n_rows
+from sklearn.utils._param_validation import Interval, RealNotInt, StrOptions
+from sklearn.utils.parallel import Parallel, delayed
+from sklearn.utils.validation import _num_samples, check_is_fitted
 from ._bagging import BaseBagging
 from ._base import _partition_estimators
 

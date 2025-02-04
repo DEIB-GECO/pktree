@@ -4,7 +4,7 @@ from cython.parallel import prange
 from libc.math cimport isnan
 import numpy as np
 
-from ...utils._typedefs cimport intp_t
+from sklearn.utils._typedefs cimport intp_t
 from .common cimport X_DTYPE_C
 from .common cimport Y_DTYPE_C
 from .common import Y_DTYPE

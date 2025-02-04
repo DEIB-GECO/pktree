@@ -16,7 +16,7 @@ import numpy as np
 
 from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
 
-from ...utils.arrayfuncs import sum_parallel
+from sklearn.utils.arrayfuncs import sum_parallel
 from ._bitset import set_raw_bitset_from_binned_bitset
 from .common import (
     PREDICTOR_RECORD_DTYPE,

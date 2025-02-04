@@ -14,29 +14,29 @@ from numbers import Integral
 
 import numpy as np
 
-from ..base import (
+from sklearn.base import (
     ClassifierMixin,
     RegressorMixin,
     TransformerMixin,
     _fit_context,
     clone,
 )
-from ..exceptions import NotFittedError
-from ..preprocessing import LabelEncoder
-from ..utils import Bunch
-from ..utils._estimator_html_repr import _VisualBlock
-from ..utils._param_validation import StrOptions
-from ..utils.metadata_routing import (
+from sklearn.exceptions import NotFittedError
+from sklearn.preprocessing import LabelEncoder
+from sklearn.utils import Bunch
+from sklearn.utils._estimator_html_repr import _VisualBlock
+from sklearn.utils._param_validation import StrOptions
+from sklearn.utils.metadata_routing import (
     MetadataRouter,
     MethodMapping,
     _raise_for_params,
     _routing_enabled,
     process_routing,
 )
-from ..utils.metaestimators import available_if
-from ..utils.multiclass import type_of_target
-from ..utils.parallel import Parallel, delayed
-from ..utils.validation import (
+from sklearn.utils.metaestimators import available_if
+from sklearn.utils.multiclass import type_of_target
+from sklearn.utils.parallel import Parallel, delayed
+from sklearn.utils.validation import (
     _check_feature_names_in,
     _deprecate_positional_args,
     check_is_fitted,

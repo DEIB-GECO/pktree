@@ -156,7 +156,7 @@ cdef class Criterion:
         """
         pass
 
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_features) noexcept nogil:
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil:
         """Compute a proxy of the impurity reduction.
 
         This method is used to speed up the search for the best split.
@@ -291,8 +291,7 @@ cdef class ClassificationCriterion(Criterion):
     def __cinit__(self, intp_t n_outputs,
                   cnp.ndarray[intp_t, ndim=1] n_classes,
                   cnp.ndarray[float64_t, ndim=1] w_prior, 
-                  float64_t v_param, 
-                  dict embeddings_distances):
+                  float64_t v_param):
         """Initialize attributes for this criterion.
 
         Parameters
@@ -301,6 +300,10 @@ cdef class ClassificationCriterion(Criterion):
             The number of targets, the dimensionality of the prediction
         n_classes : numpy.ndarray, dtype=intp_t
             The number of unique classes in each target
+        w_prior: numpy.ndarray, dtype=float64_t
+            The prior knowledge scores of features
+        v_param: float64_t
+            The hyperparameter to regulate the w_prior effect
         """
         self.start = 0
         self.pos = 0
@@ -318,7 +321,6 @@ cdef class ClassificationCriterion(Criterion):
 
         self.n_classes = np.empty(n_outputs, dtype=np.intp)
         
-
         cdef intp_t k = 0
         cdef intp_t j = 0
         cdef intp_t max_n_classes = 0
@@ -331,17 +333,11 @@ cdef class ClassificationCriterion(Criterion):
             if n_classes[k] > max_n_classes:
                 max_n_classes = n_classes[k]
 
+        # Set up the w_prior parameter
         if w_prior is not None:
             self.w_prior = np.array(w_prior, dtype=np.float64)
         else:
             self.w_prior = None
-
-    
-
-        if embeddings_distances is not None:
-            self.embeddings_distances = embeddings_distances
-        else:
-            self.embeddings_distances = None
 
         self.max_n_classes = max_n_classes
 
@@ -625,7 +621,7 @@ cdef class ClassificationCriterion(Criterion):
 
         return self._check_monotonicity(monotonic_cst, lower_bound, upper_bound, value_left, value_right)
 
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_features) noexcept nogil:
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil:
         """Compute a proxy of the impurity reduction.
 
         This method is used to speed up the search for the best split.
@@ -643,42 +639,12 @@ cdef class ClassificationCriterion(Criterion):
 
         cdef float64_t impurity_improvement = (- self.weighted_n_right * impurity_right - self.weighted_n_left * impurity_left)
         cdef float64_t score = 0.0
-
-        cdef float64_t sum_dist_score = 0.0
-        cdef float64_t dist_score = 0.0
-        cdef intp_t n_features = 0
-        cdef float64_t v = 0.25 # hyperparameter to give relevance to the w_prior (0.25)
-        cdef float64_t q = 3 # hyperparameter to give relevance to the embeddings score (2)
-        cdef intp_t feature_counter = 0 # counter to get the number of relevant features for normalization
-
-        with gil:
-            n_features = len(already_selected_features)
         
-        if self.w_prior is not None and self.embeddings_distances is None:
+        # Applying the w_prior score to the proxy impurity improvement 
+        if self.w_prior is not None:
             with gil:
                 score = self.w_prior[feature] 
                 return impurity_improvement * score**(self.v_param)
-
-        elif self.w_prior is not None and self.embeddings_distances is not None:
-
-            if (n_features == 0):
-                return impurity_improvement
-            with gil:
-                for i in range(0, n_features):
-                    if already_selected_features[i] != -2:
-                        feature_counter += 1
-                        if ((feature, already_selected_features[i]) in self.embeddings_distances.keys()):
-                            dist_score += self.embeddings_distances[(feature, already_selected_features[i])]
-                        elif ((already_selected_features[i], feature) in self.embeddings_distances.keys()):
-                            dist_score += self.embeddings_distances[(already_selected_features[i], feature)]
-                if dist_score > 0.0:
-                    dist_score /= feature_counter
-                    score = (((self.w_prior[feature])*2) / dist_score)**q #q hyperparameter
-                    # print("score: ",dist_score)
-                    return impurity_improvement * score
-                else:
-                    # print("DEFAULT! Score = 0.0")
-                    return impurity_improvement * 0.85
         else:
             return impurity_improvement
 
@@ -890,7 +856,10 @@ cdef class RegressionCriterion(Criterion):
             = (\sum_i^n y_i ** 2) - n_samples * y_bar ** 2
     """
 
-    def __cinit__(self, intp_t n_outputs, intp_t n_samples):
+    def __cinit__(self, intp_t n_outputs, 
+                  intp_t n_samples,
+                  cnp.ndarray[float64_t, ndim=1] w_prior, 
+                  float64_t v_param):
         """Initialize parameters for this criterion.
 
         Parameters
@@ -900,6 +869,12 @@ cdef class RegressionCriterion(Criterion):
 
         n_samples : intp_t
             The total number of samples to fit on
+
+        w_prior: numpy.ndarray, dtype=float64_t
+            The prior knowledge scores of features
+
+        v_param: float64_t
+            The hyperparameter to regulate the w_prior effect
         """
         # Default values
         self.start = 0
@@ -915,6 +890,12 @@ cdef class RegressionCriterion(Criterion):
         self.weighted_n_missing = 0.0
 
         self.sq_sum_total = 0.0
+
+        # Setting up of w_prior parameter
+        if w_prior is not None:
+            self.w_prior = np.array(w_prior, dtype=np.float64)
+        else:
+            self.w_prior = None
 
         self.sum_total = np.zeros(n_outputs, dtype=np.float64)
         self.sum_left = np.zeros(n_outputs, dtype=np.float64)
@@ -1160,7 +1141,7 @@ cdef class MSE(RegressionCriterion):
 
         return impurity / self.n_outputs
 
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_features) noexcept nogil:
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil:
         """Compute a proxy of the impurity reduction.
 
         This method is used to speed up the search for the best split.
@@ -1188,8 +1169,18 @@ cdef class MSE(RegressionCriterion):
             proxy_impurity_left += self.sum_left[k] * self.sum_left[k]
             proxy_impurity_right += self.sum_right[k] * self.sum_right[k]
 
-        return (proxy_impurity_left / self.weighted_n_left +
-                proxy_impurity_right / self.weighted_n_right)
+        cdef float64_t impurity_improvement = (proxy_impurity_left / self.weighted_n_left +
+                                               proxy_impurity_right / self.weighted_n_right)
+
+        cdef float64_t score = 0.0
+
+        # Applying the w_prior score to the proxy impurity improvement 
+        if self.w_prior is not None:
+            with gil:
+                score = self.w_prior[feature] 
+                return impurity_improvement * score**(self.v_param)
+        else:
+            return impurity_improvement
 
     cdef void children_impurity(self, float64_t* impurity_left,
                                 float64_t* impurity_right) noexcept nogil:
@@ -1591,7 +1582,7 @@ cdef class FriedmanMSE(MSE):
         improvement = n_left * n_right * diff^2 / (n_left + n_right)
     """
 
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_features) noexcept nogil:
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil:
         """Compute a proxy of the impurity reduction.
 
         This method is used to speed up the search for the best split.
@@ -1615,7 +1606,20 @@ cdef class FriedmanMSE(MSE):
         diff = (self.weighted_n_right * total_sum_left -
                 self.weighted_n_left * total_sum_right)
 
-        return diff * diff / (self.weighted_n_left * self.weighted_n_right)
+        cdef float64_t impurity_improvement = diff * diff / (self.weighted_n_left * self.weighted_n_right)
+        cdef float64_t score = 0.0
+        
+        # Applying the w_prior score to the proxy impurity improvement
+        if self.w_prior is not None:
+            with gil:
+                score = self.w_prior[feature] 
+                return impurity_improvement * score**(self.v_param)
+
+                ### TODO: test whether impurity improvement is positive or negative. In the latter case, use the commented lines:
+                # score = (1 - self.w_prior[feature]) / self.w_prior[feature]
+                # return impurity_improvement * score**(self.v_param)    
+        else:
+            return impurity_improvement
 
     cdef float64_t impurity_improvement(self, float64_t impurity_parent, float64_t
                                         impurity_left, float64_t impurity_right) noexcept nogil:
@@ -1668,7 +1672,7 @@ cdef class Poisson(RegressionCriterion):
         return self.poisson_loss(self.start, self.end, self.sum_total,
                                  self.weighted_n_node_samples)
 
-    cdef float64_t proxy_impurity_improvement(self, int feature, list already_selected_features) noexcept nogil:
+    cdef float64_t proxy_impurity_improvement(self, int feature) noexcept nogil:
         """Compute a proxy of the impurity reduction.
 
         This method is used to speed up the search for the best split.
@@ -1712,7 +1716,16 @@ cdef class Poisson(RegressionCriterion):
                 proxy_impurity_left -= self.sum_left[k] * log(y_mean_left)
                 proxy_impurity_right -= self.sum_right[k] * log(y_mean_right)
 
-        return - proxy_impurity_left - proxy_impurity_right
+        cdef float64_t impurity_improvement = - proxy_impurity_left - proxy_impurity_right
+        cdef float64_t score = 0.0
+        
+        # Applying the w_prior score to the proxy impurity improvement 
+        if self.w_prior is not None:
+            with gil:
+                score = self.w_prior[feature] 
+                return impurity_improvement * score**(self.v_param)
+        else:
+            return impurity_improvement
 
     cdef void children_impurity(self, float64_t* impurity_left,
                                 float64_t* impurity_right) noexcept nogil:

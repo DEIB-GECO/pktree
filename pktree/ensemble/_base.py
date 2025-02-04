@@ -9,12 +9,6 @@ from typing import List
 import numpy as np
 from joblib import effective_n_jobs
 
-# from ..base import BaseEstimator, MetaEstimatorMixin, clone, is_classifier, is_regressor
-# from ..utils import Bunch, check_random_state
-# from ..utils._tags import _safe_tags
-# from ..utils._user_interface import _print_elapsed_time
-# from ..utils.metadata_routing import _routing_enabled
-# from ..utils.metaestimators import _BaseComposition
 from sklearn.base import BaseEstimator, MetaEstimatorMixin, clone, is_classifier, is_regressor
 from sklearn.utils import Bunch, check_random_state
 from sklearn.utils._tags import _safe_tags
@@ -141,7 +135,7 @@ class BaseEnsemble(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
         else:
             self.estimator_ = default
 
-    def _make_estimator(self, append=True, random_state=None, w_prior=None, pk_configuration="standard", k=1, v=1, embeddings_distances=None):
+    def _make_estimator(self, append=True, random_state=None, w_prior=None, pk_configuration="standard", k=1, v=1, pk_function="reciprocal"):
         """Make and configure a copy of the `estimator_` attribute.
 
         Warning: This method should be used to properly instantiate new
@@ -161,10 +155,8 @@ class BaseEnsemble(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
             estimator.set_params(pk_configuration=pk_configuration)
             estimator.set_params(k=k)
             estimator.set_params(v=v)
+            estimator.set_params(pk_function=pk_function)
             
-        if embeddings_distances is not None:
-            estimator.set_params(embeddings_distances=embeddings_distances)
-
         if append:
             self.estimators_.append(estimator)
 
