@@ -4,7 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pktree"
-version = "0.1.0"
+version = "0.0.1"
+authors = [
+    { name="Sofia Mongardi" },
+    { name="Manuel Tacca" },
+    { name="Marco Masseroli" },
+    { name="Francesco Invernici" }
+]
+maintainers = [
+    {name="Sofia Mongardi", email="sofia.mongardi@polimi.it"}
+]
+description="A Python package for incorporating biological prior knowledge into tree-based models"
+readme = "README.md"
 dependencies = [
     "Cython>=3.0.10",
     "numpy>=1.19.5",
@@ -14,15 +25,22 @@ dependencies = [
     "scikit-learn"
 ]
 requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Cython",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering"
+]
+license = { name = "MIT", text = "LICENSE.md" }
+# keywords = ["sklearn", "bioinformatics", "tree-based", "prior knowledge"]
+
+[project.urls]
+Homepage = "https://github.com/SofSof98/pktree"
+Issues = "https://github.com/SofSof98/pktree/issues"
 
 [tool.setuptools]
 packages = ["pktree", "pktree.tree", "pktree.ensemble", "pktree.ensemble._hist_gradient_boosting"]
-#ext-modules = [
-#    {name = "pktree.hello", sources = ["pktree/hello.pyx"]},
-#    {name = "pktree.tree._criterion", sources = ["pktree/tree/_criterion.pyx"], include-dirs=["numpy.get_include()"]},
-#    {name = "pktree.tree._partitioner", sources = ["pktree/tree/_partitioner.pyx"]},
-#    {name = "pktree.tree._splitter", sources = ["pktree/tree/_splitter.pyx"]},
-#    {name = "pktree.tree._tree", sources = ["pktree/tree/_tree.pyx"]},
-#   {name = "pktree.tree._utils", sources = ["pktree/tree/_utils.pyx"]},
-#]
 
