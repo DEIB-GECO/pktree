@@ -12,7 +12,7 @@ _Incorporating Prior Knowledge into Tree-Based Models_
 <td>
 <h1 align="left">PkTree</h1>
 <h4 align="left" style="font-weight: medium; color: gray;">
-A Python package for incorporating biological prior knowledge into tree-based models
+A Python package for incorporating prior domain knowledge into tree-based models
 </h3>
 </td>
 </tr>
@@ -86,7 +86,7 @@ Here’s how to use pktree to build and train a prior-knowledge informed Decisio
 from pktree import tree
 
 
-# Create a biology-informed Decision Tree model
+# Create a domain-informed Decision Tree model
 model = tree.DecisionTreeClassifier(pk_configuration='all', k=2.0, v=1.0)
 
 # Train the model
@@ -100,7 +100,7 @@ For Random Forests:
 ```python
 from pktree import ensemble
 
-# Create a biology-informed Random Forest model
+# Create a domain-informed Random Forest model
 forest = ensemble.RandomForestClassifier(pk_configuration='all', v=0.35)
 
 # Train the model
