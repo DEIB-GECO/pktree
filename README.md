@@ -127,7 +127,7 @@ def generate_dataset(task_type, n_samples = 100, n_features = 50, noise_level = 
 # Obtain the scores and datasets
 w_prior = assign_feature_scores()
 X_classification, y_classification = generate_dataset('classification')
-X_classification, y_classification = generate_dataset('regression')
+X_regression, y_regression = generate_dataset('regression')
         
 ```
 ### **Decision Trees**
@@ -156,12 +156,15 @@ X_train, X_test, y_train, y_test = train_test_split(X_regression, y_regression, 
 model = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', oob_score=True, on_oob=True, w_prior=w_prior, pk_function='reciprocal')
 
 #Make predictions
-y_pred = regressor.predict(X_test)
+y_pred = model.predict(X_test)
 ```
 ### **Random Forest**
 For RandomForestClassifier:  
 ```python
 from pktree import ensemble
+
+# Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(X_classification, y_classfication, test_size=0.2, random_state=42)
 
 # Create a domain-informed Random Forest model
 forest = ensemble.RandomForestClassifier(random_state=42, pk_configuration='on_feature_sampling', oob_score=True, on_oob=True, w_prior=w_prior)
@@ -174,6 +177,9 @@ predictions = forest.predict(X_test)
 ```
 and RandomForestRegressor:
 ```python
+# Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(X_regression, y_regression, test_size=0.2, random_state=42)
+
 # Create a domain-informed Random Forest model
 forest = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', oob_score=True, on_oob=True, w_prior=w_prior)
 
@@ -181,7 +187,7 @@ forest = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_im
 forest.fit(X_train, y_train)
 
 # Make predictions
-predictions = model.predict(X_test)
+predictions = forest.predict(X_test)
 ```
 
 ---
