@@ -81,13 +81,65 @@ pip install pktree
 ```
 
 ### **Example Usage**  
-Here’s how to use pktree to build and train a prior-knowledge informed Decision Tree model:  
+Here’s how to use pktree to build and train a prior-knowledge informed Decision Tree or Random Forest model:
+
+### **Creation of synthetic datasets**
+First of all let's build a simple synthetic dataset, and extract a ficticious w_prior for each feature.
+```python
+import numpy as np
+import pandas as pd
+from sklearn.datasets import make_classification, make_regression
+
+# Function for extraction of fictitious w_prior
+def assign_feature_scores(n_features = 50):
+    scores = np.round(np.random.uniform(0.01, 0.99, size=n_features), 5)
+    return scores
+
+# Function for the generation of synthetic dataset
+def generate_dataset(task_type, n_samples = 100, n_features = 50, noise_level = 0.1):
+    
+    if task_type == 'classification':
+        X, y = make_classification(
+            n_samples=n_samples, 
+            n_features=n_features, 
+            n_informative=int(n_features * 0.7), 
+            n_redundant=int(n_features * 0.2), 
+            n_classes=2, 
+            random_state=42
+        )
+
+        # Add noise to the data frame
+        X += np.random.normal(0, noise_level, X.shape)
+        
+    elif task_type == 'regression':
+        X, y = make_regression(
+            n_samples=n_samples, 
+            n_features=n_features, 
+            noise=noise_level, 
+            random_state=42
+        )
+
+    else:
+        raise ValueError("task_type must be either 'classification' or 'regression'")
+
+    return X, y
+
+# Obtain the scores and datasets
+w_prior = assign_feature_scores()
+X_classification, y_classification = generate_dataset('classification')
+X_classification, y_classification = generate_dataset('regression')
+        
+```
+### **Example usage: Decision Trees**
+Now that we have the data, let us see some example of usage for DecisionTreesClassifier:
 ```python
 from pktree import tree
 
+# Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(X_classification, y_classfication, test_size=0.2, random_state=42)
 
 # Create a domain-informed Decision Tree model
-model = tree.DecisionTreeClassifier(pk_configuration='all', k=2.0, v=1.0)
+model = tree.DecisionTreeClassifier(random_state=42, pk_configuration='all', w_prior=w_prior, k=1, v=1, pk_function='linear')
 
 # Train the model
 model.fit(X_train, y_train)
@@ -95,19 +147,40 @@ model.fit(X_train, y_train)
 # Make predictions
 predictions = model.predict(X_test)
 ```
+and DecisionTreeRegressor:
+```python
+# Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(X_regression, y_regression, test_size=0.2, random_state=42)
 
-For Random Forests:  
+# Create a domain-informed Decision Tree model
+model = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', oob_score=True, on_oob=True, w_prior=w_prior, pk_function='reciprocal')
+
+#Make predictions
+y_pred = regressor.predict(X_test)
+```
+For RandomForestClassifier:  
 ```python
 from pktree import ensemble
 
 # Create a domain-informed Random Forest model
-forest = ensemble.RandomForestClassifier(pk_configuration='all', v=0.35)
+forest = ensemble.RandomForestClassifier(random_state=42, pk_configuration='on_feature_sampling', oob_score=True, on_oob=True, w_prior=w_prior)
 
 # Train the model
 forest.fit(X_train, y_train)
 
 # Make predictions
 predictions = forest.predict(X_test)
+```
+and RandomForestRegressor:
+```python
+# Create a domain-informed Random Forest model
+forest = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', oob_score=True, on_oob=True, w_prior=w_prior)
+
+# Train the model
+forest.fit(X_train, y_train)
+
+# Make predictions
+predictions = model.predict(X_test)
 ```
 
 ---
