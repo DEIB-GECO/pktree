@@ -130,7 +130,7 @@ X_classification, y_classification = generate_dataset('classification')
 X_classification, y_classification = generate_dataset('regression')
         
 ```
-### **Example usage: Decision Trees**
+### **Decision Trees**
 Now that we have the data, let us see some example of usage for DecisionTreesClassifier:
 ```python
 from pktree import tree
@@ -158,6 +158,7 @@ model = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_imp
 #Make predictions
 y_pred = regressor.predict(X_test)
 ```
+### **Random Forest**
 For RandomForestClassifier:  
 ```python
 from pktree import ensemble
