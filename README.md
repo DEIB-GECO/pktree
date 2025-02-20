@@ -29,8 +29,8 @@ The enhancements in **PkTree** build upon the `scikit-learn` library.
 
 ### 1. **Prior-Informed Decision Trees**  
 We introduce two key modifications to the traditional Decision Tree algorithm to prioritize relevant features during tree construction:  
-- **Feature Sampling**: Weighted feature sampling during training.  
-- **Impurity Improvement**: Adjusting impurity calculations based on prior knowledge scores.  
+- **Feature Sampling**: Weighted feature sampling during training. A hyperparameter `k` controls the influence of prior knowledge score `w_prior` on sampling.  
+- **Impurity Improvement**: Adjusting impurity calculations based on prior knowledge scores. An additional hyperparameter `v` controls the strength of the prior knowledge score's (`w_prior`) impact. 
 
 The modified models include a parameter `pk_configuration`, which can take the following values:  
 - `'no_gis'`: Standard tree without knowledge.  
@@ -38,37 +38,22 @@ The modified models include a parameter `pk_configuration`, which can take the f
 - `'on_impurity_improvement'`: Incorporates prior knowledge scores in impurity computations.  
 - `'all'`: Combines both feature sampling and impurity improvement.  
 
----
 
-## **Approaches**  
-
-### **1. Feature Sampling**  
-This approach replaces the standard random feature sampling with a weighted strategy:  
-- Each feature is assigned a weight corresponding to its prior-knowledge relevance (`w_prior^-1`).  
-- Features are sampled using a Fisher-Yates-based algorithm with weights normalized to probabilities.  
-- A hyperparameter `k` controls the influence of prior knowledge on sampling.  
-
-### **2. Impurity Improvement**  
-When determining the best split, the traditional impurity calculation is modified:  
-- The standard impurity improvement value is multiplied by the feature's `w_prior`.  
-- An additional hyperparameter `v` controls the strength of the prior knowledge score's impact.  
-
----
-
-## **Random Forest Extensions**  
-
-### **1. Out-of-Bag (OOB) Weights**  
+### 2. **Prior-Informed Random Forest**  
+The modificationsabove can be seamlessly extended to the Random Forest model, which functions as an ensemble of Decision Trees. We also introduces an additional modification for Random Forests which leverages the Out-of-Bag (OOB) samples. This modification is activated with parameters `oob_score=True` and `on_oob=True`.
+#### **Out-of-Bag (OOB) Weights**  
 This approach leverages Out-of-Bag predictions for weighting individual estimators in the Random Forest ensemble:  
 - For each tree, calculate:
   - `f_score`: Accuracy on OOB samples.  
-  - `s_prior`: Average prior-knowledge relevance (`w_prior^-1`) of selected features.  
+  - `s_prior`: Average prior-knowledge relevance of selected features.  
 - Compute weights for each tree based on these scores and normalize them.  
 - A hyperparameter `r` increases the weight differences across trees, enhancing the influence of prior-knowledge scores. 
 
-### **2. Weighted Voting**  
-During prediction:  
-- Tree predictions are weighted based on their normalized scores.  
-- Predictions are aggregated in parallel using these weights, aligning final results with prior-knowledge informed estimators.  
+#### **Weighted Voting**  
+During prediction Tree predictions are weighted based on their normalized scores and aggregated.  
+
+#### **Prior-knowledge Score**
+The prior knowledge score `w_prior` is assumed to be in the range [0,1], where higher values indicate greater relevance based on the prior knowledge considered. If the `w_prior`score does not fall within this range, it is first normalized. Then, the score is transformed using a predefined function (`pk_function`) to obtain a reversed interpretation, where higher values indicate lower relevance. Check [here](https://github.com/DEIB-GECO/pktree/blob/main/pktree/tree/_classes.py) for the different implemented forms of the `pk_function`.
 
 ---
 
@@ -81,21 +66,21 @@ pip install pktree
 ```
 
 ### **Example Usage**  
-Here’s how to use pktree to build and train a prior-knowledge informed Decision Tree or Random Forest model:
+Here’s how to use **PkTree** packageto build and train prior-knowledge informed Decision Tree or Random Forest models:
 
-### **Creation of synthetic datasets**
-First of all let's build a simple synthetic dataset, and extract a ficticious w_prior for each feature.
+### **Toy Dataset**
+Build a toy dataset and generate prior knowledge score `w_prior`.
 ```python
 import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification, make_regression
 
-# Function for extraction of fictitious w_prior
+# Generate w_prior
 def assign_feature_scores(n_features = 50):
     scores = np.round(np.random.uniform(0.01, 0.99, size=n_features), 5)
     return scores
 
-# Function for the generation of synthetic dataset
+# Generate toy dataset
 def generate_dataset(task_type, n_samples = 100, n_features = 50, noise_level = 0.1):
     
     if task_type == 'classification':
@@ -108,7 +93,6 @@ def generate_dataset(task_type, n_samples = 100, n_features = 50, noise_level = 
             random_state=42
         )
 
-        # Add noise to the data frame
         X += np.random.normal(0, noise_level, X.shape)
         
     elif task_type == 'regression':
@@ -118,75 +102,56 @@ def generate_dataset(task_type, n_samples = 100, n_features = 50, noise_level = 
             noise=noise_level, 
             random_state=42
         )
-
-    else:
-        raise ValueError("task_type must be either 'classification' or 'regression'")
-
     return X, y
 
-# Obtain the scores and datasets
+
 w_prior = assign_feature_scores()
 X_classification, y_classification = generate_dataset('classification')
 X_regression, y_regression = generate_dataset('regression')
         
 ```
 ### **Decision Trees**
-Now that we have the data, let us see some example of usage for DecisionTreesClassifier:
+Build a Decision Tree classifier: 
 ```python
 from pktree import tree
 
-# Split the dataset
 X_train, X_test, y_train, y_test = train_test_split(X_classification, y_classfication, test_size=0.2, random_state=42)
 
-# Create a domain-informed Decision Tree model
-model = tree.DecisionTreeClassifier(random_state=42, pk_configuration='all', w_prior=w_prior, k=1, v=1, pk_function='linear')
+model = tree.DecisionTreeClassifier(random_state=42, pk_configuration='all', w_prior=w_prior, k=2, v=0.5, pk_function='reciprocal')
 
-# Train the model
 model.fit(X_train, y_train)
-
-# Make predictions
 predictions = model.predict(X_test)
 ```
-and DecisionTreeRegressor:
+Build a Decision Tree regressor: 
 ```python
-# Split the dataset
 X_train, X_test, y_train, y_test = train_test_split(X_regression, y_regression, test_size=0.2, random_state=42)
 
-# Create a domain-informed Decision Tree model
-model = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', oob_score=True, on_oob=True, w_prior=w_prior, pk_function='reciprocal')
+model = tree.DecisionTreeRegressor(random_state=42, pk_configuration='on_impurity_improvement', w_prior=w_prior, k=2, v=0.5,pk_function='reciprocal')
 
-#Make predictions
-y_pred = model.predict(X_test)
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)
 ```
 ### **Random Forest**
-For RandomForestClassifier:  
+Build a Random Forest classifier: 
 ```python
 from pktree import ensemble
 
-# Split the dataset
+
 X_train, X_test, y_train, y_test = train_test_split(X_classification, y_classfication, test_size=0.2, random_state=42)
 
-# Create a domain-informed Random Forest model
-forest = ensemble.RandomForestClassifier(random_state=42, pk_configuration='on_feature_sampling', oob_score=True, on_oob=True, w_prior=w_prior)
+forest = ensemble.RandomForestClassifier(random_state=42, pk_configuration='on_feature_sampling', oob_score=True, on_oob=True, w_prior=w_prior, r=3)
 
-# Train the model
 forest.fit(X_train, y_train)
-
-# Make predictions
 predictions = forest.predict(X_test)
 ```
-and RandomForestRegressor:
+Build a Random Forest Regressor: 
 ```python
-# Split the dataset
+#
 X_train, X_test, y_train, y_test = train_test_split(X_regression, y_regression, test_size=0.2, random_state=42)
 
-# Create a domain-informed Random Forest model
-forest = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', oob_score=True, on_oob=True, w_prior=w_prior)
+forest = ensemble.RandomForestRegressor(random_state=42, pk_configuration='on_impurity_improvement', w_prior=w_prior)
 
-# Train the model
 forest.fit(X_train, y_train)
-
-# Make predictions
 predictions = forest.predict(X_test)
 ```
 
@@ -201,6 +166,3 @@ predictions = forest.predict(X_test)
 ## **License**  
 This package is open-source and distributed under the [MIT License](LICENSE).  
 
---- 
-
-We welcome contributions and feedback to enhance **pktree** further! 
