@@ -7,10 +7,6 @@ setup(
     package_data={'': ['*.pxd', '*.pyx']},
     ext_modules=cythonize(
         [Extension(
-            "pktree.hello",
-            sources=["pktree/hello.pyx"]
-        ),
-        Extension(
             "pktree.tree._criterion",
             sources=["pktree/tree/_criterion.pyx"],
             include_dirs=[numpy.get_include()]
