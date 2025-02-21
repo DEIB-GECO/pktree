@@ -7,7 +7,7 @@ _Incorporating Prior Knowledge into Tree-Based Models_
 <table>
 <tr>
 <td>
-<img src="logo.png" alt="Logo" width="300" style="margin-right: 15px;">
+<img src="https://github.com/DEIB-GECO/pktree/blob/a9253cf0bd35b22e157889012dc172061fd12652/logo.png?raw=true" alt="Logo" width="300" style="margin-right: 15px;">
 </td>
 <td>
 <h1 align="left">PkTree</h1>

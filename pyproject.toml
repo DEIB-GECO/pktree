@@ -11,9 +11,6 @@ authors = [
     { name="Marco Masseroli" },
     { name="Francesco Invernici" }
 ]
-maintainers = [
-    {name="Sofia Mongardi", email="sofia.mongardi@polimi.it"}
-]
 description="A Python package for incorporating biological prior knowledge into tree-based models"
 readme = "README.md"
 dependencies = [
